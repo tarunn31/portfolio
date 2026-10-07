@@ -1,0 +1,49 @@
+{
+  "ranAt": "2026-10-07T17:26:36.768Z",
+  "tool": "Lighthouse 12.8.2",
+  "profile": "mobile, simulated slow 4G, production build",
+  "lowest": {
+    "performance": 95,
+    "accessibility": 100,
+    "bestPractices": 100,
+    "seo": 100
+  },
+  "pages": [
+    {
+      "page": "Home",
+      "path": "/",
+      "performance": 95,
+      "accessibility": 100,
+      "bestPractices": 100,
+      "seo": 100,
+      "lcpSeconds": 3
+    },
+    {
+      "page": "Nita",
+      "path": "/work/nita",
+      "performance": 95,
+      "accessibility": 100,
+      "bestPractices": 100,
+      "seo": 100,
+      "lcpSeconds": 2.9
+    },
+    {
+      "page": "AI Data Copilot",
+      "path": "/work/ai-data-copilot",
+      "performance": 95,
+      "accessibility": 100,
+      "bestPractices": 100,
+      "seo": 100,
+      "lcpSeconds": 2.9
+    },
+    {
+      "page": "Clinical RAG",
+      "path": "/work/clinical-rag",
+      "performance": 97,
+      "accessibility": 100,
+      "bestPractices": 100,
+      "seo": 100,
+      "lcpSeconds": 2.6
+    }
+  ]
+}

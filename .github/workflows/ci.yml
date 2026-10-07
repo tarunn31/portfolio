@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run verify:chunks
+      - run: npm run test:ask
+      - run: npm run test:site
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: https://tarunlankireddy.com
+      # Real Chrome on the production build: reduced motion, touch, Work-row regression, phone overflow.
+      - run: npm run test:browser
+        env:
+          CHROME_PATH: /usr/bin/google-chrome

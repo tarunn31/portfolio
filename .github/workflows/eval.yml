@@ -1,0 +1,54 @@
+name: Ask eval
+
+# Runs the live guardrail and faithfulness tests against the real model. It only runs when something
+# that can change Ask's behaviour changes, so ordinary copy or style edits cost nothing.
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "content/**"
+      - "lib/ask/**"
+      - "scripts/eval-ask.mjs"
+      - "scripts/ts-hooks.mjs"
+      - "package.json"
+      - ".github/workflows/eval.yml"
+  pull_request:
+    paths:
+      - "content/**"
+      - "lib/ask/**"
+      - "scripts/eval-ask.mjs"
+      - "package.json"
+      - ".github/workflows/eval.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ask-eval-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    # Secrets are not available to pull requests from forks, so skip those rather than fail.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run the live eval
+        run: npm run eval:ask
+        env:
+          # Set under Settings > Secrets and variables > Actions. Never written to a file or logged.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ask-eval-results
+          path: content/ask-eval.json

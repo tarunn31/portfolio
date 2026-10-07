@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --bg: #fbfbfa;
+  --text: #111111;
+  --body: #3d3d3d;
+  /* Muted and faint are a touch darker than the first design so small text passes AA (4.5:1) on every surface. */
+  --muted: #6a6a6a;
+  --faint: #6e6e6e;
+  --tile-bg: #ffffff;
+  --tile-border: #e6e6e3;
+  --row-active: #f1f1ee;
+  --btn-bg: #f6f6f4;
+  --btn-border: #e0e0dc;
+  --dot-base: #d3d3ce;
+  --dot-spot: #7a7a76;
+  --field-dot: #d4d4d0;
+  --line: rgba(17, 17, 17, 0.3);
+  --red: #dc2626;
+  --green: #16a34a;
+  /* Green for text: the bright green is for dots and switches only, it is too light to read at small sizes. */
+  --green-ink: #0b7e34;
+  --switch-off: #d4d4d0;
+  --knob: #ffffff;
+  --nav-bg: rgba(251, 251, 250, 0.82);
+  --underline: #c9c9c6;
+  --connector: #b8b8b3;
+  --ok-bg: #f0faf3;
+  --ok-border: #bbe5c8;
+  --err-bg: #fdf2f2;
+  --err-border: #f3c7c7;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f0f10;
+  --text: #ededed;
+  --body: #b4b4b8;
+  --muted: #8f8f94;
+  --faint: #85858a;
+  --tile-bg: #161618;
+  --tile-border: #26262a;
+  --row-active: #1a1a1d;
+  --btn-bg: #1e1e21;
+  --btn-border: #3a3a3f;
+  --dot-base: #2a2a2e;
+  --dot-spot: #8f8f94;
+  --field-dot: #3f3f44;
+  --line: rgba(237, 237, 237, 0.45);
+  --red: #f87171;
+  --green: #4ade80;
+  --green-ink: #4ade80;
+  --switch-off: #3a3a3f;
+  --knob: #0f0f10;
+  --nav-bg: rgba(15, 15, 16, 0.82);
+  --underline: #4a4a4f;
+  --connector: #3a3a3f;
+  --ok-bg: #12241a;
+  --ok-border: #24523a;
+  --err-bg: #261414;
+  --err-border: #5c2a2a;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-text: var(--text);
+  --color-body: var(--body);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-tile: var(--tile-bg);
+  --color-tile-border: var(--tile-border);
+  --color-row-active: var(--row-active);
+  --color-btn: var(--btn-bg);
+  --color-btn-border: var(--btn-border);
+  --color-dot-base: var(--dot-base);
+  --color-dot-spot: var(--dot-spot);
+  --color-field-dot: var(--field-dot);
+  --color-line: var(--line);
+  --color-red: var(--red);
+  --color-green: var(--green);
+  --color-green-ink: var(--green-ink);
+  --color-switch-off: var(--switch-off);
+  --color-knob: var(--knob);
+  --color-nav: var(--nav-bg);
+  --color-underline: var(--underline);
+  --color-connector: var(--connector);
+  --color-ok-bg: var(--ok-bg);
+  --color-ok-border: var(--ok-border);
+  --color-err-bg: var(--err-bg);
+  --color-err-border: var(--err-border);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 72px;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.7;
+  transition:
+    background 240ms ease,
+    color 240ms ease;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 3px;
+}
+/* Text inputs here sit inside a bordered container (the Ask card, the palette row), which shows the focus
+   instead: the border darkens on :focus-within. A ring around the bare input would be clipped by the container. */
+input:focus-visible {
+  outline: none;
+}
+
+@keyframes fadein {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Staggered load-in: --i is the section index, 80ms apart. */
+.fade-up {
+  animation: fadein 600ms ease both;
+  animation-delay: calc(var(--i, 0) * 80ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Theme toggle icon swaps with CSS so server HTML never shows the wrong one. */
+.icon-for-light {
+  display: inline;
+}
+.icon-for-dark {
+  display: none;
+}
+:root[data-theme="dark"] .icon-for-light {
+  display: none;
+}
+:root[data-theme="dark"] .icon-for-dark {
+  display: inline;
+}
+
+/* Dot grid. Base layer is strong in the margins and fades behind the column. */
+.dots-base {
+  background-image: radial-gradient(var(--dot-base) 1px, transparent 1.3px);
+  background-size: 22px 22px;
+}
+.dots-spot {
+  background-image: radial-gradient(var(--dot-spot) 1.2px, transparent 1.5px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(
+    260px circle at var(--mx, -999px) var(--my, -999px),
+    #000 0%,
+    rgba(0, 0, 0, 0.5) 45%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    260px circle at var(--mx, -999px) var(--my, -999px),
+    #000 0%,
+    rgba(0, 0, 0, 0.5) 45%,
+    transparent 100%
+  );
+}
+.mask-home {
+  --m: linear-gradient(
+    to right,
+    #000 0%,
+    #000 22%,
+    rgba(0, 0, 0, 0.16) 36%,
+    rgba(0, 0, 0, 0.16) 64%,
+    #000 78%,
+    #000 100%
+  );
+  -webkit-mask-image: var(--m);
+  mask-image: var(--m);
+}
+.mask-case {
+  --m: linear-gradient(
+    to right,
+    #000 0%,
+    #000 18%,
+    transparent 32%,
+    transparent 68%,
+    #000 82%,
+    #000 100%
+  );
+  -webkit-mask-image: var(--m);
+  mask-image: var(--m);
+}

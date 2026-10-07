@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+next-env.d.ts
+*.tsbuildinfo
+.env*
+!.env.example
+.DS_Store
+.vercel
+
+# Local-only working files (build brief, design source, fact sheet, drafts). Never committed.
+internal/

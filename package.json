@@ -1,0 +1,40 @@
+{
+  "name": "portfolio",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "verify:chunks": "node --import ./scripts/register-ts.mjs scripts/verify-chunks.mjs",
+    "audit:lighthouse": "node --import ./scripts/register-ts.mjs scripts/audit-lighthouse.mjs",
+    "test:browser": "node --import ./scripts/register-ts.mjs scripts/browser.test.mjs",
+    "test:site": "node --import ./scripts/register-ts.mjs --test scripts/site.test.mjs",
+    "test:ask": "node --import ./scripts/register-ts.mjs --test scripts/ask.test.mjs",
+    "eval:ask": "node --import ./scripts/register-ts.mjs scripts/eval-ask.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@upstash/ratelimit": "^2.2.0",
+    "@upstash/redis": "^1.39.0",
+    "geist": "^1.7.2",
+    "next": "^15.5.27",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^20.19.43",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^15.5.27",
+    "postcss": "^8.5.29",
+    "puppeteer-core": "^24.43.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3"
+  }
+}
