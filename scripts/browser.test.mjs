@@ -71,6 +71,11 @@ for (const [label, features] of [
   if (features.length) await page.emulateMediaFeatures(features);
   await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#work-ai-data-copilot-btn");
+  // A click before React has hydrated is ignored by any server-rendered page, so wait for the handlers to exist.
+  await page.waitForFunction(() => {
+    const b = document.getElementById("work-ai-data-copilot-btn");
+    return b && Object.keys(b).some((k) => k.startsWith("__reactProps"));
+  });
   // as early as a script can: no hover, no focus, no idle time for the features to arrive
   await page.evaluate(() => document.getElementById("work-ai-data-copilot-btn").click());
   await sleep(1500);

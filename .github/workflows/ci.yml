@@ -26,6 +26,8 @@ jobs:
       - run: npm run build
         env:
           NEXT_PUBLIC_SITE_URL: https://tarunlankireddy.com
+          # Same as production, so the build under test includes the View source links.
+          NEXT_PUBLIC_REPO_URL: https://github.com/tarunn31/portfolio
       # Real Chrome on the production build: reduced motion, touch, Work-row regression, phone overflow.
       - run: npm run test:browser
         env:

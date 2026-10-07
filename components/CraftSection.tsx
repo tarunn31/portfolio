@@ -14,7 +14,8 @@ function Caption({ title, description, file }: { title: string; description: str
       {site.repo && (
         <a
           href={`${site.repo}/blob/main/components/craft/${file}`}
-          className="mt-0.5 self-start font-mono text-[12px] text-faint underline decoration-underline underline-offset-[3px]"
+          // py lifts the hit area to 24px+ (WCAG 2.2 target size); the matching -my keeps the layout unchanged.
+          className="-my-[3px] mt-0.5 self-start py-[3px] font-mono text-[12px] text-faint underline decoration-underline underline-offset-[3px]"
         >
           View source<span className="sr-only"> for {title}</span>
         </a>
