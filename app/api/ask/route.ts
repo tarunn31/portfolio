@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { answerQuestion } from "@/lib/ask/answer";
+import { MAX_BODY_BYTES, checkRequest } from "@/lib/ask/guard";
 import { checkLimit } from "@/lib/ask/ratelimit";
 import { FALLBACK_MESSAGE } from "@/lib/ask/types";
 import { validateQuestion } from "@/lib/ask/validate";
@@ -16,9 +17,20 @@ const log = (fields: Record<string, unknown>) => console.info(JSON.stringify({ e
 export async function POST(req: Request) {
   const started = Date.now();
 
+  const guard = checkRequest(req.headers);
+  if (!guard.ok) {
+    log({ outcome: "blocked", reason: guard.reason });
+    return fallback(guard.status);
+  }
+
   let body: unknown;
   try {
-    body = await req.json();
+    const raw = await req.text();
+    if (raw.length > MAX_BODY_BYTES) {
+      log({ outcome: "blocked", reason: "too-large" });
+      return fallback(413);
+    }
+    body = JSON.parse(raw);
   } catch {
     log({ outcome: "bad-json" });
     return fallback(400);
@@ -29,7 +41,8 @@ export async function POST(req: Request) {
     return fallback(400);
   }
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
   const limit = await checkLimit(ip);
   if (!limit.ok) {
     log({ outcome: "rate-limited" });

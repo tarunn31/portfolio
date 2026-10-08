@@ -1,18 +1,27 @@
 import type { NextConfig } from "next";
+import { buildSecurityHeaders } from "./lib/security-headers";
 
 const nextConfig: NextConfig = {
-  async redirects() {
+  poweredByHeader: false,
+  async headers() {
     return [
-      { source: "/resume", destination: "/resume.pdf", permanent: false },
-    ];
-  },
-  async rewrites() {
-    return [
+      { source: "/:path*", headers: buildSecurityHeaders(process.env.NODE_ENV === "production") },
       {
-        source: "/resume.pdf",
-        destination: "/Sai_Tarun_Reddy_Lankireddy_Resume.pdf",
+        // Answers are per question and never cached or indexed.
+        source: "/api/:path*",
+        headers: [
+          { key: "Cache-Control", value: "no-store" },
+          { key: "X-Robots-Tag", value: "noindex" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+        ],
       },
     ];
+  },
+  async redirects() {
+    return [{ source: "/resume", destination: "/resume.pdf", permanent: false }];
+  },
+  async rewrites() {
+    return [{ source: "/resume.pdf", destination: "/Sai_Tarun_Reddy_Lankireddy_Resume.pdf" }];
   },
 };
 

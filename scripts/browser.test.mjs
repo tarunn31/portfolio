@@ -409,9 +409,142 @@ for (const width of [360, 390]) {
   }
 }
 
+// ---------- E. security: headers are served, and the CSP never blocks anything the site needs ----------
+{
+  const pages = ["/", ...caseStudies.map((c) => `/work/${c.slug}`)];
+  for (const path of pages) {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 900 });
+    const problems = [];
+    await page.evaluateOnNewDocument(() => {
+      window.__csp = [];
+      document.addEventListener("securitypolicyviolation", (e) =>
+        window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`),
+      );
+    });
+    page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
+    page.on("console", (m) => m.type() === "error" && problems.push(`console: ${m.text().slice(0, 120)}`));
+    page.on(
+      "requestfailed",
+      (r) => !r.failure()?.errorText.includes("ERR_ABORTED") && problems.push(`failed: ${r.url()}`),
+    );
+    const res = await page.goto(BASE + path, { waitUntil: "networkidle0" });
+    const headers = res.headers();
+    // Use the interactive parts so every lazy chunk, font, video and palette path runs under the CSP.
+    if (path === "/") {
+      await page.evaluate(() => document.getElementById("work-clinical-rag-btn")?.click());
+      await sleep(600);
+      await page.keyboard.down("Control");
+      await page.keyboard.press("k");
+      await page.keyboard.up("Control");
+      await sleep(700);
+      await page.keyboard.press("Escape");
+      await sleep(200);
+      await page.evaluate(() =>
+        document
+          .querySelector("[data-ask-chip='1']")
+          ?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })),
+      );
+      await sleep(1200);
+    }
+    await sleep(2500); // the preview video starts after the page is idle
+    const violations = await page.evaluate(() => window.__csp);
+    const want = [
+      "x-content-type-options",
+      "x-frame-options",
+      "referrer-policy",
+      "permissions-policy",
+      "cross-origin-opener-policy",
+      "content-security-policy",
+    ];
+    const missing = want.filter((k) => !headers[k]);
+    const prodLike = BASE.startsWith("https://") || process.env.NODE_ENV === "production" || !!server;
+    check(
+      "security",
+      `${path}: security headers present`,
+      missing.length === 0 || !prodLike,
+      `missing: ${missing.join(", ") || "none"}`,
+    );
+    check("security", `${path}: no powered-by header`, !headers["x-powered-by"]);
+    check("security", `${path}: no CSP violations`, violations.length === 0, violations.join("; "));
+    check(
+      "security",
+      `${path}: no console errors or failed requests`,
+      problems.length === 0,
+      problems.join("; "),
+    );
+    await page.close();
+  }
+  // The policy is enforced, not just present: an outside request from the page must be blocked.
+  {
+    const page = await browser.newPage();
+    await page.evaluateOnNewDocument(() => {
+      window.__csp = [];
+      document.addEventListener("securitypolicyviolation", (e) => window.__csp.push(e.violatedDirective));
+    });
+    await page.goto(BASE + "/", { waitUntil: "networkidle0" });
+    const blocked = await page.evaluate(async () => {
+      const outcomes = {};
+      try {
+        await fetch("https://example.com/");
+        outcomes.connect = "allowed";
+      } catch {
+        outcomes.connect = "blocked";
+      }
+      const img = new Image();
+      img.src = "https://example.com/pixel.png";
+      const script = document.createElement("script");
+      script.src = "https://example.com/x.js";
+      document.head.appendChild(script);
+      await new Promise((r) => setTimeout(r, 800));
+      outcomes.violations = window.__csp;
+      return outcomes;
+    });
+    check(
+      "security",
+      "CSP blocks outside connections, images and scripts",
+      blocked.connect === "blocked" &&
+        ["connect-src", "img-src", "script-src"].every((d) =>
+          blocked.violations.some((v) => v.startsWith(d)),
+        ),
+      JSON.stringify(blocked),
+    );
+    await page.close();
+  }
+  // The API: wrong format and cross-site callers are refused before they cost anything.
+  const call = (headers, body = '{"question":"hi"}') =>
+    fetch(`${BASE}/api/ask`, { method: "POST", headers, body }).then((r) => r.status);
+  check(
+    "security",
+    "API rejects text/plain (the cross-site no-preflight trick)",
+    (await call({ "content-type": "text/plain" })) === 415,
+  );
+  check(
+    "security",
+    "API rejects a request from another origin",
+    (await call({ "content-type": "application/json", origin: "https://evil.example" })) === 403,
+  );
+  check(
+    "security",
+    "API rejects an oversized body",
+    (await call({ "content-type": "application/json" }, "x".repeat(5000))) === 413,
+  );
+  const api = await fetch(`${BASE}/api/ask`, {
+    method: "POST",
+    headers: { "content-type": "text/plain" },
+    body: "{}",
+  });
+  check(
+    "security",
+    "API responses are never cached",
+    /no-store/.test(api.headers.get("cache-control") ?? ""),
+    api.headers.get("cache-control") ?? "",
+  );
+}
+
 await browser.close();
 const width = Math.max(...results.map((r) => r.name.length));
-for (const mode of ["regression", "control", "reduced", "touch", "overflow"]) {
+for (const mode of ["regression", "control", "reduced", "touch", "overflow", "security"]) {
   console.log(`\n== ${mode}`);
   for (const r of results.filter((x) => x.mode === mode))
     console.log(`  ${r.ok ? "PASS" : "FAIL"}  ${r.name.padEnd(width)}  ${r.detail}`);

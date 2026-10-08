@@ -5,6 +5,7 @@ import { suggestions } from "../content/ask";
 import { chunks } from "../content/chunks";
 import { answerQuestion } from "../lib/ask/answer";
 import { getKnowledge } from "../lib/ask/pack";
+import { MAX_BODY_BYTES, checkRequest } from "../lib/ask/guard";
 import { createLimiter, createMemoryLimiter, redisCredentials } from "../lib/ask/ratelimit";
 import { looksLikePhone, validateAnswer, validateQuestion } from "../lib/ask/validate";
 import { evalCases } from "../lib/ask/eval-cases";
@@ -596,7 +597,8 @@ test("nothing in the build, the tests or the Ask knowledge pack reaches into the
     for (const f of readdirSync(d)) {
       if (["node_modules", ".next", ".git", "internal"].includes(f)) continue;
       const p = join(d, f);
-      statSync(p).isDirectory() ? walk(p) : files.push(p);
+      if (statSync(p).isDirectory()) walk(p);
+      else files.push(p);
     }
   };
   walk(root);
@@ -619,4 +621,35 @@ test("nothing in the build, the tests or the Ask knowledge pack reaches into the
     readFileSync(join(root, ".gitignore"), "utf8").split("\n").includes("internal/"),
     "internal/ is git-ignored",
   );
+});
+
+test("API guard: JSON only, same origin only, small bodies; non-browser clients still pass", () => {
+  const h = (o) => new Headers({ "content-type": "application/json", host: "tarunlankireddy.com", ...o });
+  assert.deepEqual(checkRequest(h({})), { ok: true }, "curl style: no Origin, rate limited instead");
+  assert.deepEqual(checkRequest(h({ origin: "https://tarunlankireddy.com" })), { ok: true });
+  assert.deepEqual(
+    checkRequest(h({ origin: "https://tarunlankireddy.com", "sec-fetch-site": "same-origin" })),
+    { ok: true },
+  );
+  assert.equal(checkRequest(h({ origin: "https://evil.example" })).status, 403);
+  assert.equal(
+    checkRequest(h({ origin: "https://tarunlankireddy.com.evil.example" })).status,
+    403,
+    "look-alike hosts are not the site",
+  );
+  assert.equal(checkRequest(h({ "sec-fetch-site": "cross-site" })).status, 403);
+  assert.equal(checkRequest(h({ origin: "not a url" })).status, 403);
+  assert.equal(
+    checkRequest(h({ "content-type": "text/plain" })).status,
+    415,
+    "text/plain is the no-preflight cross-site trick",
+  );
+  assert.equal(
+    checkRequest(new Headers({ host: "tarunlankireddy.com" })).status,
+    415,
+    "no content type at all",
+  );
+  assert.equal(checkRequest(h({ "content-length": String(MAX_BODY_BYTES + 1) })).status, 413);
+  assert.deepEqual(checkRequest(h({ "content-length": "120" })), { ok: true });
+  assert.deepEqual(checkRequest(h({ "content-type": "application/json; charset=utf-8" })), { ok: true });
 });

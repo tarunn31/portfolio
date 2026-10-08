@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
+import { buildSecurityHeaders, csp } from "../lib/security-headers";
 import robots from "../app/robots";
 import sitemap from "../app/sitemap";
 import { caseStudies } from "../content/case-studies";
@@ -26,7 +27,14 @@ const sourceFiles = ["app", "components", "content", "lib", "scripts", ".github"
 
 test("palette has exactly the groups and entries the spec lists", () => {
   const by = (g) => paletteItems.filter((i) => i.group === g).map((i) => i.label);
-  assert.deepEqual(by("Jump to"), ["Work", "Craft", "Ask", "Experience", "Contact", ...caseStudies.map((c) => c.shortName)]);
+  assert.deepEqual(by("Jump to"), [
+    "Work",
+    "Craft",
+    "Ask",
+    "Experience",
+    "Contact",
+    ...caseStudies.map((c) => c.shortName),
+  ]);
   assert.deepEqual(by("Actions"), ["Download resume", "Copy email", "Toggle theme"]);
   assert.deepEqual(by("Links"), ["GitHub", "LinkedIn", "nita.care", "AI Data Copilot live demo"]);
   assert.equal(new Set(paletteItems.map((i) => i.id)).size, paletteItems.length);
@@ -56,7 +64,9 @@ test("sitemap lists the home page and every case study on the real domain; robot
 });
 
 test("hard rule: no em dashes anywhere in site code or copy", () => {
-  const bad = sourceFiles.filter((f) => readFileSync(f, "utf8").includes("\u2014")).map((f) => f.replace(root, ""));
+  const bad = sourceFiles
+    .filter((f) => readFileSync(f, "utf8").includes("\u2014"))
+    .map((f) => f.replace(root, ""));
   assert.deepEqual(bad, []);
 });
 
@@ -75,16 +85,23 @@ const OLD_RESUME_SHA256 = "ff7c73c67009f84927f3434683440e97dd5b9ca8a7093cf3a620c
 test("the public resume is the phone-free web version", () => {
   const pdf = readFileSync(join(root, "public/Sai_Tarun_Reddy_Lankireddy_Resume.pdf"));
   assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
-  assert.notEqual(createHash("sha256").update(pdf).digest("hex"), OLD_RESUME_SHA256, "the old resume with a phone number is back");
+  assert.notEqual(
+    createHash("sha256").update(pdf).digest("hex"),
+    OLD_RESUME_SHA256,
+    "the old resume with a phone number is back",
+  );
 });
 
 // WCAG AA: 4.5:1 for normal text. Read straight from the CSS tokens, for both themes and every surface.
 const css = readFileSync(join(root, "app/globals.css"), "utf8");
-const tokens = (block) => Object.fromEntries([...block.matchAll(/--([a-z-]+):\s*(#[0-9a-fA-F]{6})/g)].map((m) => [m[1], m[2]]));
+const tokens = (block) =>
+  Object.fromEntries([...block.matchAll(/--([a-z-]+):\s*(#[0-9a-fA-F]{6})/g)].map((m) => [m[1], m[2]]));
 const lightTokens = tokens(css.slice(css.indexOf(":root {"), css.indexOf(':root[data-theme="dark"]')));
 const darkTokens = tokens(css.slice(css.indexOf(':root[data-theme="dark"]'), css.indexOf("@theme")));
 const luminance = (hex) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const [r, g, b] = [1, 3, 5]
+    .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 };
 const ratio = (a, b) => {
@@ -94,9 +111,19 @@ const ratio = (a, b) => {
 
 test("contrast: text tokens meet AA on every surface in both themes", () => {
   const surfaces = ["bg", "tile-bg", "row-active", "btn-bg"];
-  const rules = { text: surfaces, body: surfaces, muted: surfaces, faint: surfaces, "green-ink": surfaces, red: ["bg", "tile-bg"] };
+  const rules = {
+    text: surfaces,
+    body: surfaces,
+    muted: surfaces,
+    faint: surfaces,
+    "green-ink": surfaces,
+    red: ["bg", "tile-bg"],
+  };
   const failures = [];
-  for (const [theme, t] of [["light", lightTokens], ["dark", darkTokens]]) {
+  for (const [theme, t] of [
+    ["light", lightTokens],
+    ["dark", darkTokens],
+  ]) {
     for (const [fg, onto] of Object.entries(rules)) {
       for (const bg of onto) {
         const r = ratio(t[fg], t[bg]);
@@ -110,9 +137,45 @@ test("contrast: text tokens meet AA on every surface in both themes", () => {
 test("published measurements meet the bar they are shown against", () => {
   const lh = JSON.parse(readFileSync(join(root, "content/lighthouse.json"), "utf8"));
   const ev = JSON.parse(readFileSync(join(root, "content/ask-eval.json"), "utf8"));
-  if (lh.ranAt) for (const [k, v] of Object.entries(lh.lowest)) assert.ok(v >= 95, `Lighthouse ${k} is ${v}, below 95`);
+  if (lh.ranAt)
+    for (const [k, v] of Object.entries(lh.lowest)) assert.ok(v >= 95, `Lighthouse ${k} is ${v}, below 95`);
   if (ev.ranAt) {
     assert.ok(ev.results.length >= 25);
-    assert.deepEqual(ev.results.filter((r) => !r.passed).map((r) => r.id), [], "a recorded Ask test failed");
+    assert.deepEqual(
+      ev.results.filter((r) => !r.passed).map((r) => r.id),
+      [],
+      "a recorded Ask test failed",
+    );
   }
+});
+
+test("security headers: the set is complete, and the CSP only allows this site's own origin", () => {
+  const prod = Object.fromEntries(buildSecurityHeaders(true).map((x) => [x.key, x.value]));
+  for (const k of [
+    "X-Content-Type-Options",
+    "X-Frame-Options",
+    "Referrer-Policy",
+    "Permissions-Policy",
+    "Cross-Origin-Opener-Policy",
+    "Content-Security-Policy",
+  ]) {
+    assert.ok(prod[k], `${k} missing`);
+  }
+  assert.equal(prod["X-Content-Type-Options"], "nosniff");
+  assert.equal(prod["X-Frame-Options"], "DENY");
+  // No third-party origin anywhere in the policy, and no eval.
+  assert.ok(!/https?:\/\//.test(csp), "the CSP names an external origin");
+  assert.ok(!/unsafe-eval/.test(csp), "unsafe-eval is not allowed");
+  for (const d of [
+    "default-src 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "upgrade-insecure-requests",
+  ]) {
+    assert.ok(csp.includes(d), `${d} missing`);
+  }
+  const dev = buildSecurityHeaders(false).map((x) => x.key);
+  assert.ok(!dev.includes("Content-Security-Policy"), "the dev server must not get the production CSP");
 });
