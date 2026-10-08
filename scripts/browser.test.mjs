@@ -428,6 +428,8 @@ for (const width of [360, 390]) {
       "requestfailed",
       (r) => !r.failure()?.errorText.includes("ERR_ABORTED") && problems.push(`failed: ${r.url()}`),
     );
+    // No cache: a revalidated page comes back as a 304, which carries only a few of the headers.
+    await page.setCacheEnabled(false);
     const res = await page.goto(BASE + path, { waitUntil: "networkidle0" });
     const headers = res.headers();
     // Use the interactive parts so every lazy chunk, font, video and palette path runs under the CSP.
